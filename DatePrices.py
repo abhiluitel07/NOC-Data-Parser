@@ -1,0 +1,79 @@
+import requests
+from bs4 import BeautifulSoup
+import time
+from datetime import datetime, timedelta
+import re
+import csv
+
+scraped_data = []
+cleaned_data = []
+
+url_offset = 0
+
+while True:
+    url = f"https://noc.org.np/retailprice?offset={url_offset}&max=10"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        break
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    tables = soup.find_all("table")
+    rows = tables[0].find("tbody").find_all("tr")
+
+    if not rows:
+        break
+
+    for row in rows:
+        cols = row.find_all("td")
+
+        if len(cols) > 0:
+            date_text = cols[0].text.strip()
+            petrol = cols[2].text.strip()
+
+            scraped_data.append((date_text, petrol))
+
+    url_offset += 10
+    time.sleep(1)
+
+for entry in scraped_data:
+    dates = re.findall(r'\d{4}\.\d{2}\.\d{2}', entry[0])
+
+    for date_str in dates:
+        try:
+            date_obj = datetime.strptime(date_str, "%Y.%m.%d").date()
+
+            if 2017 <= date_obj.year <= 2026:
+                cleaned_data.append({
+                    "date": date_obj,
+                    "price": float(entry[1])
+                })
+
+        except ValueError:
+            pass
+
+if not cleaned_data:
+    exit()
+
+cleaned_data.sort(key=lambda x: x['date'])
+
+start_date = cleaned_data[0]['date']
+end_date = cleaned_data[-1]['date']
+current_date = start_date
+
+price_map = {item['date']: item['price'] for item in cleaned_data}
+
+last_known_price = None
+
+with open("petrol_prices_filled.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+
+    writer.writerow(["Date", "Petrol_Price"])
+
+    while current_date <= end_date:
+        if current_date in price_map:
+            last_known_price = price_map[current_date]
+
+        writer.writerow([current_date, last_known_price])
+
+        current_date += timedelta(days=1)
