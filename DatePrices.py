@@ -36,6 +36,8 @@ while True:
     url_offset += 10
     time.sleep(1)
 
+today = datetime.today().date()
+
 for entry in scraped_data:
     dates = re.findall(r'\d{4}\.\d{2}\.\d{2}', entry[0])
 
@@ -43,7 +45,7 @@ for entry in scraped_data:
         try:
             date_obj = datetime.strptime(date_str, "%Y.%m.%d").date()
 
-            if 2017 <= date_obj.year <= 2026:
+            if datetime(2017, 1, 1).date() <= date_obj <= today:
                 cleaned_data.append({
                     "date": date_obj,
                     "price": float(entry[1])
@@ -58,7 +60,7 @@ if not cleaned_data:
 cleaned_data.sort(key=lambda x: x['date'])
 
 start_date = cleaned_data[0]['date']
-end_date = cleaned_data[-1]['date']
+end_date = today
 current_date = start_date
 
 price_map = {item['date']: item['price'] for item in cleaned_data}
